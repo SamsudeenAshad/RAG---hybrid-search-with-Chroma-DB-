@@ -20,6 +20,7 @@ dependencies = [
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.30.0",
     "duckduckgo-search>=6.3.0",
+    "langchain-tavily>=0.1.0",
     "python-dotenv>=1.0.1",
     "tenacity>=8.5.0",
 ]

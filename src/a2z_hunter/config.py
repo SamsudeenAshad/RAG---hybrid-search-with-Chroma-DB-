@@ -13,17 +13,20 @@ class Settings(BaseSettings):
 
     # Gemini
     google_api_key: str = ""
-    gemini_chat_model: str = "gemini-2.0-flash"
-    gemini_reasoning_model: str = "gemini-1.5-pro"
-    gemini_embed_model: str = "models/text-embedding-004"
-    embed_dim: int = 768
+    gemini_chat_model: str = "gemini-2.5-flash"
+    # 'pro' is unavailable on Gemini free tier (quota 0). Default reasoning to
+    # flash; override GEMINI_REASONING_MODEL=gemini-2.5-pro on a paid key.
+    gemini_reasoning_model: str = "gemini-2.5-flash"
+    gemini_embed_model: str = "models/gemini-embedding-001"
+    embed_dim: int = 3072
 
-    # Qdrant
-    qdrant_url: str = "http://localhost:6333"
+    # Qdrant (cloud or local). Set qdrant_api_key for Qdrant Cloud.
+    qdrant_url: str = "http://localhost:6533"
+    qdrant_api_key: str = ""
     qdrant_collection: str = "documents"
 
     # Postgres
-    database_url: str = "postgresql://a2z:a2z@localhost:5432/a2z_hunter"
+    database_url: str = "postgresql://a2z:a2z@localhost:5442/a2z_hunter"
 
     # Retrieval / graph tuning
     retrieval_top_k: int = 20

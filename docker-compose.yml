@@ -3,8 +3,8 @@ services:
     image: qdrant/qdrant:v1.12.4
     container_name: a2z_qdrant
     ports:
-      - "6333:6333"   # REST / dashboard
-      - "6334:6334"   # gRPC
+      - "6533:6333"   # REST / dashboard (host 6533 to avoid conflicts)
+      - "6534:6334"   # gRPC
     volumes:
       - qdrant_storage:/qdrant/storage
     restart: unless-stopped
@@ -17,7 +17,7 @@ services:
       POSTGRES_PASSWORD: a2z
       POSTGRES_DB: a2z_hunter
     ports:
-      - "5432:5432"
+      - "5442:5432"   # host 5442 to avoid conflicts
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:

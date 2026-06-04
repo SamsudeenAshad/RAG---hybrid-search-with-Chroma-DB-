@@ -45,7 +45,12 @@ def embeddings() -> GoogleGenerativeAIEmbeddings:
 @lru_cache
 def qdrant_client() -> QdrantClient:
     s = get_settings()
-    return QdrantClient(url=s.qdrant_url)
+    return QdrantClient(
+        url=s.qdrant_url,
+        api_key=s.qdrant_api_key or None,
+        # Qdrant Cloud requires gRPC disabled / HTTPS via the REST URL.
+        prefer_grpc=False,
+    )
 
 
 @lru_cache
