@@ -11,25 +11,39 @@ Given a user question, route it through a pipeline of specialized agents that (1
 ## 2. Agent Pipeline (from your diagram)
 
 ```
-User Request
+User Query
      │
      ▼
-Planner Agent      → decompose question, decide which tools are needed
+Planner Agent              → decompose question, decide which tools/sources are needed
      │
      ▼
-Vector Search Agent → embed query, retrieve top-k chunks from Qdrant
+Query Rewriter             → expand/clarify/multi-query rewrite for better recall
      │
      ▼
-Web Search Agent   → (conditional) fill knowledge gaps via web search
+Hybrid Retrieval           → dense (Qdrant) + sparse (BM25) fused with RRF
+ (Qdrant + BM25)
+     ├── Internal Knowledge → embedded document corpus
+     └── Web Search         → (conditional) fill gaps via external search
      │
      ▼
-Reasoning Agent    → synthesize evidence, resolve conflicts, check sufficiency
+Reranker                   → cross-encoder re-scores fused candidates, keeps top-N
      │
      ▼
-Response Agent     → final grounded answer with citations
+Evidence Fusion            → dedupe, merge, group passages into a coherent context block
+     │
+     ▼
+Reasoning Agent            → synthesize evidence, resolve conflicts, draft answer
+     │
+     ▼
+Verification Agent         → fact-check draft against evidence; gate (loop back if unsupported)
+     │
+     ▼
+Response Agent             → final grounded answer with citations
 ```
 
-We implement this as a **LangGraph `StateGraph`**. Edges are mostly linear, but the Planner sets flags that drive **conditional edges** (e.g. skip Web Search when vector hits are strong enough; loop back to retrieval if Reasoning judges evidence insufficient).
+We implement this as a **LangGraph `StateGraph`**. Most edges are linear, but several nodes set flags that drive **conditional edges**:
+- **Hybrid Retrieval** triggers **Web Search** only when the planner flagged it or internal hits are weak (top fused score below threshold).
+- **Verification Agent** is the loop-back gate: if the draft answer contains claims unsupported by the evidence, it loops back to **Query Rewriter** (broadened query) up to `MAX_ATTEMPTS`; otherwise it proceeds to **Response**.
 
 ## 3. Component Responsibilities
 
@@ -37,9 +51,11 @@ We implement this as a **LangGraph `StateGraph`**. Edges are mostly linear, but 
 |-----------|---------|------|
 | Orchestration | LangGraph `StateGraph` | Node-per-agent, conditional routing, retry loops |
 | State persistence | `langgraph-checkpoint-postgres` (`PostgresSaver`) | Durable checkpoints in Postgres; resume/inspect runs by `thread_id` |
-| Vector store | Qdrant (`langchain-qdrant`) | Stores embedded document chunks + payload metadata |
-| Embeddings | Gemini `text-embedding-004` via `GoogleGenerativeAIEmbeddings` | 768-dim vectors (configurable via `output_dimensionality`) |
-| LLM | Gemini `gemini-2.0-flash` (fast nodes), `gemini-1.5-pro` (reasoning) via `ChatGoogleGenerativeAI` | Agent reasoning |
+| Vector store | Qdrant (`langchain-qdrant`, `RetrievalMode.HYBRID`) | Dense + sparse vectors per point; server-side RRF fusion |
+| Sparse / BM25 | `fastembed` (e.g. `Qdrant/bm25`) sparse embeddings | Lexical recall complementing dense vectors |
+| Embeddings | Gemini `text-embedding-004` via `GoogleGenerativeAIEmbeddings` | 768-dim dense vectors (configurable via `output_dimensionality`) |
+| Reranker | Cross-encoder (`fastembed` reranker / Cohere / Jina) | Re-scores fused candidates, keeps top-N before fusion |
+| LLM | Gemini `gemini-2.0-flash` (fast nodes), `gemini-1.5-pro` (reasoning/verification) via `ChatGoogleGenerativeAI` | Agent reasoning |
 | Web search | Tavily (`langchain-tavily`) or DuckDuckGo fallback | External knowledge |
 | Relational store | PostgreSQL (`psycopg`) | Document/source registry, ingestion log, citations |
 | API | FastAPI | `/ingest`, `/query`, `/threads/{id}` endpoints |
@@ -51,20 +67,27 @@ We implement this as a **LangGraph `StateGraph`**. Edges are mostly linear, but 
 class AgentState(TypedDict):
     question: str
     plan: dict                      # planner output: subqueries, needs_web, k
-    retrieved: list[Document]       # Qdrant hits
+    rewritten_queries: list[str]    # query rewriter output (multi-query)
+    retrieved: list[Document]       # hybrid (dense+sparse) hits, pre-rerank
     web_results: list[dict]         # web search hits (optional)
-    evidence_sufficient: bool       # reasoning verdict
+    reranked: list[Document]        # top-N after cross-encoder rerank
+    evidence: str                   # fused, deduped context block + provenance map
+    draft_answer: str               # reasoning agent draft
+    verification: dict              # {supported: bool, unsupported_claims: [...]}
     retrieval_attempts: int         # loop guard
-    answer: str
+    answer: str                     # final, verified answer
     citations: list[dict]
     messages: Annotated[list, add_messages]
 ```
 
 ## 5. Routing Logic
 
-- **Planner → Vector Search**: always.
-- **Vector Search → (Web Search | Reasoning)**: conditional. If `plan.needs_web` or top score < threshold → Web Search; else → Reasoning.
-- **Reasoning → (Vector Search | Response)**: if `evidence_sufficient == False` and `retrieval_attempts < MAX_ATTEMPTS` → loop back to Vector Search (broadened query); else → Response.
+- **Planner → Query Rewriter**: always.
+- **Query Rewriter → Hybrid Retrieval**: always (runs dense Qdrant + sparse BM25, fused via RRF).
+- **Hybrid Retrieval → (Web Search | Reranker)**: conditional. If `plan.needs_web` or top fused score < threshold → Web Search (then Reranker); else → Reranker directly.
+- **Reranker → Evidence Fusion → Reasoning**: linear.
+- **Reasoning → Verification**: always.
+- **Verification → (Query Rewriter | Response)**: if `verification.supported == False` and `retrieval_attempts < MAX_ATTEMPTS` → loop back to **Query Rewriter** (broaden using `unsupported_claims`); else → Response.
 - **Response → END**.
 
 ## 6. Data Model (Postgres)
@@ -89,15 +112,15 @@ CREATE TABLE chunks (
 );
 ```
 
-Qdrant collection `documents` holds one point per chunk: `{ id, vector(768), payload: { document_id, ordinal, title, source_uri, text } }`.
+Qdrant collection `documents` runs in **hybrid mode** — each point carries a **named dense vector** (`dense`, 768-dim, cosine) **and** a **named sparse vector** (`sparse`, BM25). Query time uses `Query` with `Fusion.RRF` to combine both: `{ id, vectors: { dense: [...768], sparse: {indices, values} }, payload: { document_id, ordinal, title, source_uri, text } }`.
 
 ## 7. Ingestion Flow
 
 1. Load source (file / URL) → `langchain` document loader.
 2. Split with `RecursiveCharacterTextSplitter` (e.g. 1000 chars, 150 overlap).
 3. Compute `sha256`; skip if already in `documents` (idempotent).
-4. Embed chunks with Gemini (batch ≤ 100 — Gemini API limit).
-5. Upsert points into Qdrant; insert rows into `documents` + `chunks`.
+4. Compute **both** vectors per chunk: dense via Gemini (batch ≤ 100 — Gemini API limit) and sparse (BM25) via `fastembed`.
+5. Upsert points (dense + sparse named vectors) into Qdrant; insert rows into `documents` + `chunks`.
 
 ## 8. Proposed File Layout
 
