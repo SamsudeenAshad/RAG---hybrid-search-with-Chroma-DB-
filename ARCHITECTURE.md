@@ -135,13 +135,17 @@ a2z_hunter/
 │   ├── clients.py              # qdrant client, gemini llm/embeddings, pg pool
 │   ├── db.py                   # schema bootstrap + document/chunk DAO
 │   ├── ingest.py               # ingestion pipeline + CLI
-│   ├── retriever.py            # Qdrant retriever wrapper
+│   ├── retriever.py            # Qdrant hybrid (dense+sparse RRF) retriever wrapper
+│   ├── rerank.py               # cross-encoder reranker
 │   ├── state.py                # AgentState TypedDict
 │   ├── agents/
 │   │   ├── planner.py
-│   │   ├── vector_search.py
-│   │   ├── web_search.py
-│   │   ├── reasoning.py
+│   │   ├── query_rewriter.py
+│   │   ├── hybrid_retrieval.py # internal knowledge (Qdrant+BM25)
+│   │   ├── web_search.py       # conditional external search
+│   │   ├── evidence_fusion.py  # dedupe + merge into context block
+│   │   ├── reasoning.py        # draft answer
+│   │   ├── verification.py     # fact-check gate / loop-back
 │   │   └── response.py
 │   ├── graph.py                # StateGraph wiring + PostgresSaver
 │   └── api.py                  # FastAPI app
@@ -159,6 +163,7 @@ langchain
 langchain-google-genai          # ChatGoogleGenerativeAI + GoogleGenerativeAIEmbeddings
 langchain-qdrant
 qdrant-client
+fastembed                       # sparse BM25 embeddings + cross-encoder reranker
 langchain-tavily                # web search (optional)
 psycopg[binary,pool]            # Postgres driver for PostgresSaver + DAO
 pydantic-settings
@@ -169,18 +174,21 @@ fastapi / uvicorn
 
 - **PostgresSaver** must be created with `autocommit=True` and `row_factory=dict_row`, and `.setup()` called once to create checkpoint tables. Set `LANGGRAPH_STRICT_MSGPACK=true` for safe deserialization.
 - **Gemini embeddings** cap batch size at **100 strings** — chunk batching is required for large ingests. Dimension is 768 by default; `output_dimensionality` can reduce it (must match the Qdrant collection's configured vector size).
-- Qdrant collection vector size **must equal** the embedding dimension — assert this at startup.
-- Use distinct Gemini models per node: `flash` for planner/response (cheap/fast), `pro` for reasoning (quality).
+- Qdrant collection dense vector size **must equal** the embedding dimension — assert this at startup. The sparse vector is configured separately (`SparseVectorParams`); query with `Fusion.RRF` to combine dense + sparse.
+- **Reranker** runs *after* fusing internal + web candidates and *before* Evidence Fusion — it sees the full candidate pool so the top-N is globally best, not per-source.
+- **Verification** is a real gate, not cosmetic: it must return structured `{supported, unsupported_claims}` (use Gemini structured output) so routing is deterministic. Cap loop-backs with `MAX_ATTEMPTS` to avoid infinite rewrite→retrieve→verify cycles.
+- Use distinct Gemini models per node: `flash` for planner/rewriter/response (cheap/fast), `pro` for reasoning + verification (quality).
 
 ## 11. Build Order (next steps)
 
 1. `docker-compose.yml` + `.env.example` + deps → bring up Qdrant & Postgres.
 2. `config.py`, `clients.py`, `db.py` → connectivity + schema.
-3. `ingest.py` → load sample docs into Qdrant/Postgres.
-4. `state.py` + the 5 agent nodes.
-5. `graph.py` → wire StateGraph with PostgresSaver + conditional edges.
-6. `api.py` → FastAPI `/ingest` and `/query`.
-7. `tests/` → ingestion idempotency + a graph smoke test.
+3. `retriever.py` + `rerank.py` → hybrid (dense+sparse RRF) retriever + cross-encoder.
+4. `ingest.py` → load sample docs (dense + sparse vectors) into Qdrant/Postgres.
+5. `state.py` + the 8 agent nodes (planner, query_rewriter, hybrid_retrieval, web_search, evidence_fusion, reasoning, verification, response).
+6. `graph.py` → wire StateGraph with PostgresSaver + conditional edges (web-search branch, verification loop-back).
+7. `api.py` → FastAPI `/ingest` and `/query`.
+8. `tests/` → ingestion idempotency, hybrid retrieval, verification gate, graph smoke test.
 
 ---
 
