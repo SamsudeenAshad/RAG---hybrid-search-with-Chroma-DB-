@@ -65,9 +65,9 @@ def document_exists(sha256: str) -> bool:
 
 
 def insert_document(
-    *, source_uri: str, title: str, sha256: str, chunk_count: int
+    *, source_uri: str, title: str, sha256: str, chunk_count: int, doc_id: uuid.UUID | None = None
 ) -> uuid.UUID:
-    doc_id = uuid.uuid4()
+    doc_id = doc_id or uuid.uuid4()
     with connect() as conn:
         conn.execute(
             """INSERT INTO documents (id, source_uri, title, sha256, chunk_count)
