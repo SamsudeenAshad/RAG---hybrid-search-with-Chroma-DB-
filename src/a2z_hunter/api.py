@@ -2,14 +2,24 @@
 from __future__ import annotations
 
 import uuid
+from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from . import ingest as ingest_mod
 from .graph import run_query
 
 app = FastAPI(title="a2z_hunter — Agentic Vector Search")
+
+_STATIC_DIR = Path(__file__).parent / "static"
+
+
+@app.get("/", include_in_schema=False)
+def index() -> FileResponse:
+    return FileResponse(_STATIC_DIR / "index.html")
 
 
 class IngestRequest(BaseModel):
@@ -48,10 +58,15 @@ def query(req: QueryRequest) -> dict:
     }
 
 
+app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")
+
+
 def run() -> None:
+    import os
     import uvicorn
 
-    uvicorn.run("a2z_hunter.api:app", host="0.0.0.0", port=8000, reload=False)
+    port = int(os.getenv("API_PORT", "8000"))
+    uvicorn.run("a2z_hunter.api:app", host="0.0.0.0", port=port, reload=False)
 
 
 if __name__ == "__main__":
