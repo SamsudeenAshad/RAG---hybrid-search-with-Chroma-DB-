@@ -29,7 +29,8 @@ class Settings(BaseSettings):
     embed_dim: int = 3072  # Gemini dimension; Ollama is auto-detected.
 
     # Ollama (self-hosted LLM + embeddings). Used when *_provider="ollama".
-    ollama_base_url: str = "http://zuselk-node-001.tru.zt:11434"
+    # Set OLLAMA_BASE_URL in .env to your host.
+    ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "llama3.1"
     ollama_embed_model: str = "mxbai-embed-large"
 
