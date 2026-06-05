@@ -35,8 +35,24 @@ def list_providers() -> dict:
     """Return providers, their available models, and the configured defaults."""
     s = get_settings()
     ollama = _ollama_models()
+    ollama_up = bool(ollama)
     return {
         "default_provider": s.llm_provider,
+        "default_embed_provider": s.embed_provider,
+        # Embedding-provider selection (separate from chat LLM; each provider
+        # uses its own Qdrant collection, sized to its dimension).
+        "embed_providers": [
+            {
+                "id": "gemini",
+                "label": f"Gemini ({s.gemini_embed_model.split('/')[-1]}, {s.embed_dim}d)",
+                "available": bool(s.google_api_key),
+            },
+            {
+                "id": "ollama",
+                "label": f"Ollama ({s.ollama_embed_model})",
+                "available": ollama_up,
+            },
+        ],
         "providers": [
             {
                 "id": "gemini",

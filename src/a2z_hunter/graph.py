@@ -24,20 +24,29 @@ from .agents.rerank_node import rerank_node
 from .agents.response import response_node
 from .agents.verification import verification_node
 from .agents.web_search import web_search_node
-from .clients import reset_llm_override, set_llm_override
+from .clients import (
+    reset_embed_override,
+    reset_llm_override,
+    set_embed_override,
+    set_llm_override,
+)
 from .config import get_settings
 from .retriever import top_score
 from .state import AgentState
 
 
 @contextmanager
-def _llm_selection(provider: str | None, model: str | None) -> Iterator[None]:
-    """Apply a per-run provider/model selection to all agent nodes."""
-    token = set_llm_override(provider, model)
+def _llm_selection(
+    provider: str | None, model: str | None, embed_provider: str | None = None
+) -> Iterator[None]:
+    """Apply a per-run LLM + embedding provider selection to all agent nodes."""
+    lt = set_llm_override(provider, model)
+    et = set_embed_override(embed_provider)
     try:
         yield
     finally:
-        reset_llm_override(token)
+        reset_embed_override(et)
+        reset_llm_override(lt)
 
 
 def _route_after_retrieval(state: AgentState) -> str:

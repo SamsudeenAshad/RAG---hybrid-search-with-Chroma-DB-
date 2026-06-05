@@ -31,15 +31,39 @@ def _batched(items: list, size: int):
         yield items[i : i + size]
 
 
-def ingest_text(text: str, *, source_uri: str, title: str) -> dict:
-    """Idempotently ingest a single document's text. Returns a summary dict."""
+def ingest_text(
+    text: str, *, source_uri: str, title: str, embed_provider: str | None = None
+) -> dict:
+    """Idempotently ingest a single document's text. Returns a summary dict.
+
+    embed_provider (gemini|ollama) selects the embedding model + target
+    collection; None uses the configured default. Dedupe is scoped per
+    provider so the same document can live in both collections.
+    """
+    from .clients import reset_embed_override, set_embed_override
+
+    token = set_embed_override(embed_provider)
+    try:
+        return _ingest_text(text, source_uri=source_uri, title=title)
+    finally:
+        reset_embed_override(token)
+
+
+def _ingest_text(text: str, *, source_uri: str, title: str) -> dict:
+    from .clients import active_embed_provider
+
     s = get_settings()
-    ensure_collection()
+    coll = ensure_collection()
     db.init_schema()
 
-    sha = db.sha256_text(text)
+    provider = active_embed_provider()
+    # Provider-scoped sha so the same text can index under each provider.
+    sha = db.sha256_text(f"{provider}:{text}")
     if db.document_exists(sha):
-        return {"status": "skipped", "reason": "duplicate", "source_uri": source_uri}
+        return {
+            "status": "skipped", "reason": "duplicate",
+            "source_uri": source_uri, "embed_provider": provider,
+        }
 
     chunks = _split(text)
     if not chunks:
@@ -82,17 +106,20 @@ def ingest_text(text: str, *, source_uri: str, title: str) -> dict:
             {"id": chunk_id, "ordinal": ordinal, "text": chunk, "token_count": len(chunk.split())}
         )
 
-    qdrant_client().upsert(collection_name=s.qdrant_collection, points=points)
+    qdrant_client().upsert(collection_name=coll, points=points)
     # Insert document row first (FK target), then its chunks.
     db.insert_document(
         source_uri=source_uri, title=title, sha256=sha,
         chunk_count=len(chunks), doc_id=document_id,
     )
     db.insert_chunks(document_id, chunk_rows)
-    return {"status": "ingested", "chunks": len(chunks), "source_uri": source_uri}
+    return {
+        "status": "ingested", "chunks": len(chunks),
+        "source_uri": source_uri, "collection": coll,
+    }
 
 
-def ingest_path(path: Path) -> list[dict]:
+def ingest_path(path: Path, *, embed_provider: str | None = None) -> list[dict]:
     results: list[dict] = []
     if path.is_dir():
         for child in sorted(path.rglob("*")):
@@ -102,6 +129,7 @@ def ingest_path(path: Path) -> list[dict]:
                         child.read_text(encoding="utf-8", errors="ignore"),
                         source_uri=str(child),
                         title=child.name,
+                        embed_provider=embed_provider,
                     )
                 )
     elif path.is_file():
@@ -110,6 +138,7 @@ def ingest_path(path: Path) -> list[dict]:
                 path.read_text(encoding="utf-8", errors="ignore"),
                 source_uri=str(path),
                 title=path.name,
+                embed_provider=embed_provider,
             )
         )
     return results
@@ -120,13 +149,22 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("paths", nargs="*", help="files or directories (.txt/.md)")
     parser.add_argument("--text", help="ingest a raw text string instead of files")
     parser.add_argument("--title", default="inline", help="title for --text")
+    parser.add_argument(
+        "--embed-provider", choices=["gemini", "ollama"], default=None,
+        help="embedding provider (default: configured EMBED_PROVIDER)",
+    )
     args = parser.parse_args(argv)
 
     results: list[dict] = []
     if args.text:
-        results.append(ingest_text(args.text, source_uri="inline", title=args.title))
+        results.append(
+            ingest_text(
+                args.text, source_uri="inline", title=args.title,
+                embed_provider=args.embed_provider,
+            )
+        )
     for p in args.paths:
-        results.extend(ingest_path(Path(p)))
+        results.extend(ingest_path(Path(p), embed_provider=args.embed_provider))
 
     if not results:
         parser.print_help()
