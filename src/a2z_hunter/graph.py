@@ -129,9 +129,10 @@ def run_query(
     thread_id: str,
     provider: str | None = None,
     model: str | None = None,
+    embed_provider: str | None = None,
 ) -> AgentState:
     """Convenience runner for one question on a given conversation thread."""
-    with _llm_selection(provider, model), compiled_graph() as graph:
+    with _llm_selection(provider, model, embed_provider), compiled_graph() as graph:
         config = {"configurable": {"thread_id": thread_id}}
         return graph.invoke({"question": question, "messages": []}, config=config)
 
@@ -195,6 +196,7 @@ def run_query_stream(
     thread_id: str,
     provider: str | None = None,
     model: str | None = None,
+    embed_provider: str | None = None,
 ) -> Iterator[dict]:
     """Run the pipeline, yielding one event dict per node as it completes.
 
@@ -203,7 +205,7 @@ def run_query_stream(
       {"type": "final", "answer", "citations", "verification", "attempts", "thread_id"}
       {"type": "error", "message"}
     """
-    with _llm_selection(provider, model), compiled_graph() as graph:
+    with _llm_selection(provider, model, embed_provider), compiled_graph() as graph:
         config = {"configurable": {"thread_id": thread_id}}
         final_state: AgentState = {}
         try:

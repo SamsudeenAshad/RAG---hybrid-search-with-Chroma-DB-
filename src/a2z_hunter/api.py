@@ -28,13 +28,15 @@ class IngestRequest(BaseModel):
     text: str
     title: str = "inline"
     source_uri: str = "inline"
+    embed_provider: str | None = None  # "gemini" | "ollama"; None => default
 
 
 class QueryRequest(BaseModel):
     question: str
     thread_id: str | None = None
-    provider: str | None = None   # "gemini" | "ollama"; None => configured default
-    model: str | None = None      # specific model id; None => provider default
+    provider: str | None = None        # chat LLM: "gemini" | "ollama"
+    model: str | None = None           # specific model id; None => provider default
+    embed_provider: str | None = None  # embeddings: "gemini" | "ollama"
 
 
 @app.get("/health")
@@ -51,7 +53,8 @@ def models() -> dict:
 @app.post("/ingest")
 def ingest(req: IngestRequest) -> dict:
     return ingest_mod.ingest_text(
-        req.text, source_uri=req.source_uri, title=req.title
+        req.text, source_uri=req.source_uri, title=req.title,
+        embed_provider=req.embed_provider,
     )
 
 
@@ -59,7 +62,8 @@ def ingest(req: IngestRequest) -> dict:
 def query(req: QueryRequest) -> dict:
     thread_id = req.thread_id or str(uuid.uuid4())
     final = run_query(
-        req.question, thread_id=thread_id, provider=req.provider, model=req.model
+        req.question, thread_id=thread_id, provider=req.provider,
+        model=req.model, embed_provider=req.embed_provider,
     )
     return {
         "thread_id": thread_id,
@@ -79,6 +83,7 @@ def query_stream(
     thread_id: str | None = None,
     provider: str | None = None,
     model: str | None = None,
+    embed_provider: str | None = None,
 ) -> StreamingResponse:
     """Server-Sent Events: stream the pipeline's progress, then the final result."""
     tid = thread_id or str(uuid.uuid4())
@@ -87,7 +92,8 @@ def query_stream(
         # Tell the client its thread id up front.
         yield f"data: {json.dumps({'type': 'thread', 'thread_id': tid})}\n\n"
         for event in run_query_stream(
-            question, thread_id=tid, provider=provider, model=model
+            question, thread_id=tid, provider=provider, model=model,
+            embed_provider=embed_provider,
         ):
             yield f"data: {json.dumps(event)}\n\n"
 

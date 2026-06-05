@@ -169,9 +169,14 @@
             <label for="model">Model</label>
             <select id="model" style="width:100%"></select>
           </div>
+          <div style="flex:1">
+            <label for="embed-provider">Embeddings</label>
+            <select id="embed-provider" style="width:100%"></select>
+          </div>
         </div>
         <p class="small" style="color:var(--muted); margin:4px 0 8px;">
-          Drives the agent reasoning. Embeddings always use Gemini.
+          Provider/model drive agent reasoning. Embeddings select which indexed
+          collection is searched — must match what you ingested.
         </p>
         <button id="ask-btn">Ask</button>
         <div class="status" id="query-status"></div>
@@ -279,6 +284,7 @@
       if (thread) params.set('thread_id', thread);
       if ($('provider').value) params.set('provider', $('provider').value);
       if ($('model').value) params.set('model', $('model').value);
+      if ($('embed-provider').value) params.set('embed_provider', $('embed-provider').value);
       es = new EventSource('/query/stream?' + params.toString());
 
       es.onmessage = (m) => {
@@ -355,6 +361,7 @@
             text,
             title: $('ing-title').value.trim() || 'inline',
             source_uri: $('ing-uri').value.trim() || 'inline',
+            embed_provider: $('embed-provider').value || null,
           }),
         });
         const j = await r.json();
@@ -413,6 +420,17 @@
           sel.appendChild(o);
         });
         populateModels();
+
+        const esel = $('embed-provider');
+        esel.innerHTML = '';
+        (j.embed_providers || []).forEach((p) => {
+          const o = document.createElement('option');
+          o.value = p.id;
+          o.textContent = p.label + (p.available ? '' : ' (unavailable)');
+          o.disabled = !p.available;
+          if (p.id === j.default_embed_provider) o.selected = true;
+          esel.appendChild(o);
+        });
       } catch {
         $('provider').innerHTML = '<option value="">(models unavailable)</option>';
       }
