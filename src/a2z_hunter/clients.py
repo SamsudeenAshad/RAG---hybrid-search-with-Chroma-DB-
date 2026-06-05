@@ -82,12 +82,48 @@ def reasoning_llm() -> BaseChatModel:
     return _build(get_settings().gemini_reasoning_model, 0.2)
 
 
+# Per-request embedding-provider selection (mirrors the chat-LLM override).
+_embed_override: ContextVar[str | None] = ContextVar("embed_override", default=None)
+
+
+def set_embed_override(provider: str | None) -> object:
+    return _embed_override.set(provider or None)
+
+
+def reset_embed_override(token: object) -> None:
+    _embed_override.reset(token)
+
+
+def active_embed_provider() -> str:
+    return _embed_override.get() or get_settings().embed_provider
+
+
 @lru_cache
-def embeddings() -> GoogleGenerativeAIEmbeddings:
-    s = get_settings()
+def _gemini_embeddings(model: str) -> GoogleGenerativeAIEmbeddings:
     return GoogleGenerativeAIEmbeddings(
-        model=s.gemini_embed_model, google_api_key=s.google_api_key
+        model=model, google_api_key=get_settings().google_api_key
     )
+
+
+@lru_cache
+def _ollama_embeddings(model: str):
+    from langchain_ollama import OllamaEmbeddings
+
+    return OllamaEmbeddings(model=model, base_url=get_settings().ollama_base_url)
+
+
+def embeddings():
+    """Embedding model for the active embed provider (gemini | ollama)."""
+    s = get_settings()
+    if active_embed_provider() == "ollama":
+        return _ollama_embeddings(s.ollama_embed_model)
+    return _gemini_embeddings(s.gemini_embed_model)
+
+
+def collection_name(provider: str | None = None) -> str:
+    """Per-provider collection name, e.g. 'documents_gemini'."""
+    s = get_settings()
+    return f"{s.qdrant_collection}_{provider or active_embed_provider()}"
 
 
 @lru_cache

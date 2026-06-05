@@ -12,9 +12,12 @@ class Settings(BaseSettings):
     )
 
     # LLM provider selection: "gemini" or "ollama". Drives the agent nodes.
-    # NOTE: embeddings always use Gemini (the Qdrant collection is sized to it),
-    # regardless of this setting.
     llm_provider: str = "gemini"
+
+    # Embedding provider: "gemini" or "ollama". Because providers produce
+    # different vector dimensions, EACH gets its own Qdrant collection
+    # (qdrant_collection + "_" + provider). Dimension is auto-detected.
+    embed_provider: str = "gemini"
 
     # Gemini
     google_api_key: str = ""
@@ -23,16 +26,17 @@ class Settings(BaseSettings):
     # flash; override GEMINI_REASONING_MODEL=gemini-2.5-pro on a paid key.
     gemini_reasoning_model: str = "gemini-2.5-flash"
     gemini_embed_model: str = "models/gemini-embedding-001"
-    embed_dim: int = 3072
+    embed_dim: int = 3072  # Gemini dimension; Ollama is auto-detected.
 
-    # Ollama (self-hosted LLM). Used when llm_provider="ollama".
+    # Ollama (self-hosted LLM + embeddings). Used when *_provider="ollama".
     ollama_base_url: str = "http://zuselk-node-001.tru.zt:11434"
     ollama_model: str = "llama3.1"
+    ollama_embed_model: str = "mxbai-embed-large"
 
     # Qdrant (cloud or local). Set qdrant_api_key for Qdrant Cloud.
     qdrant_url: str = "http://localhost:6533"
     qdrant_api_key: str = ""
-    qdrant_collection: str = "documents"
+    qdrant_collection: str = "documents"  # base name; per-provider suffix applied
 
     # Postgres
     database_url: str = "postgresql://a2z:a2z@localhost:5442/a2z_hunter"
