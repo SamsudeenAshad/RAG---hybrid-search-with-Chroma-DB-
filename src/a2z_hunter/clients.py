@@ -152,27 +152,44 @@ def reranker():
     return TextCrossEncoder(model_name=get_settings().rerank_model)
 
 
-def ensure_collection() -> None:
-    """Create the hybrid (dense + sparse) Qdrant collection if missing.
+def embed_dimension() -> int:
+    """Dimension of the active embedding provider.
 
-    Asserts the configured embedding dimension matches the dense vector size.
+    Gemini is fixed (config); Ollama is auto-detected by embedding a probe
+    string (model dimensions vary, e.g. mxbai-embed-large=1024).
+    """
+    s = get_settings()
+    if active_embed_provider() == "ollama":
+        return len(embeddings().embed_query("dimension probe"))
+    return s.embed_dim
+
+
+def ensure_collection() -> str:
+    """Create the per-provider hybrid (dense + sparse) collection if missing.
+
+    Returns the resolved collection name. Verifies an existing collection's
+    dense size matches the active provider's dimension.
     """
     s = get_settings()
     client = qdrant_client()
-    if client.collection_exists(s.qdrant_collection):
-        info = client.get_collection(s.qdrant_collection)
+    name = collection_name()
+    dim = embed_dimension()
+
+    if client.collection_exists(name):
+        info = client.get_collection(name)
         dense = info.config.params.vectors[s.dense_vector_name]
-        if dense.size != s.embed_dim:
+        if dense.size != dim:
             raise ValueError(
-                f"Collection '{s.qdrant_collection}' dense size {dense.size} "
-                f"!= configured EMBED_DIM {s.embed_dim}"
+                f"Collection '{name}' dense size {dense.size} != provider "
+                f"dimension {dim}. Drop the collection to re-create it."
             )
-        return
+        return name
 
     client.create_collection(
-        collection_name=s.qdrant_collection,
+        collection_name=name,
         vectors_config={
-            s.dense_vector_name: VectorParams(size=s.embed_dim, distance=Distance.COSINE)
+            s.dense_vector_name: VectorParams(size=dim, distance=Distance.COSINE)
         },
         sparse_vectors_config={s.sparse_vector_name: SparseVectorParams()},
     )
+    return name

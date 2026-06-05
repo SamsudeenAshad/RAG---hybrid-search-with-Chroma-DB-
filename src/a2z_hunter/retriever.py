@@ -4,7 +4,7 @@ from __future__ import annotations
 from langchain_core.documents import Document
 from qdrant_client.models import FusionQuery, Fusion, Prefetch, SparseVector
 
-from .clients import embeddings, qdrant_client, sparse_embedder
+from .clients import collection_name, embeddings, qdrant_client, sparse_embedder
 from .config import get_settings
 
 
@@ -23,7 +23,7 @@ def hybrid_search(query: str, *, top_k: int | None = None) -> list[Document]:
     sparse_vec = _sparse_query(query)
 
     result = client.query_points(
-        collection_name=s.qdrant_collection,
+        collection_name=collection_name(),
         prefetch=[
             Prefetch(query=dense_vec, using=s.dense_vector_name, limit=limit),
             Prefetch(query=sparse_vec, using=s.sparse_vector_name, limit=limit),
