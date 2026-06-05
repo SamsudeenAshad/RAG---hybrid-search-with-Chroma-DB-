@@ -24,9 +24,20 @@ from .agents.rerank_node import rerank_node
 from .agents.response import response_node
 from .agents.verification import verification_node
 from .agents.web_search import web_search_node
+from .clients import reset_llm_override, set_llm_override
 from .config import get_settings
 from .retriever import top_score
 from .state import AgentState
+
+
+@contextmanager
+def _llm_selection(provider: str | None, model: str | None) -> Iterator[None]:
+    """Apply a per-run provider/model selection to all agent nodes."""
+    token = set_llm_override(provider, model)
+    try:
+        yield
+    finally:
+        reset_llm_override(token)
 
 
 def _route_after_retrieval(state: AgentState) -> str:
@@ -103,8 +114,113 @@ def compiled_graph() -> Iterator:
         conn.close()
 
 
-def run_query(question: str, *, thread_id: str) -> AgentState:
+def run_query(
+    question: str,
+    *,
+    thread_id: str,
+    provider: str | None = None,
+    model: str | None = None,
+) -> AgentState:
     """Convenience runner for one question on a given conversation thread."""
-    with compiled_graph() as graph:
+    with _llm_selection(provider, model), compiled_graph() as graph:
         config = {"configurable": {"thread_id": thread_id}}
         return graph.invoke({"question": question, "messages": []}, config=config)
+
+
+# Human-readable labels + emoji for each node, used by the live "thinking" stream.
+_NODE_LABELS: dict[str, str] = {
+    "planner": "🧭 Planning — decomposing the question",
+    "query_rewriter": "✍️ Rewriting — expanding into multiple queries",
+    "hybrid_retrieval": "🔎 Retrieving — dense + sparse search (RRF)",
+    "web_search": "🌐 Web search — fetching external sources",
+    "rerank": "📊 Reranking — cross-encoder scoring",
+    "evidence_fusion": "🧩 Fusing evidence — building the context block",
+    "reasoning": "💭 Reasoning — drafting a grounded answer",
+    "verification": "✅ Verifying — fact-checking the draft",
+    "response": "📝 Responding — polishing + citations",
+}
+
+
+def _summarize_node(node: str, update: dict) -> str:
+    """Produce a short detail line describing what a node just produced."""
+    try:
+        if node == "planner":
+            plan = update.get("plan", {}) or {}
+            subs = plan.get("subqueries", []) or []
+            web = "web search needed" if plan.get("needs_web") else "no web search"
+            return f"{len(subs)} sub-quer{'y' if len(subs) == 1 else 'ies'} · {web}"
+        if node == "query_rewriter":
+            qs = update.get("rewritten_queries", []) or []
+            return f"{len(qs)} query variant(s)"
+        if node == "hybrid_retrieval":
+            hits = update.get("retrieved", []) or []
+            return f"{len(hits)} candidate passage(s)"
+        if node == "web_search":
+            hits = update.get("web_results", []) or []
+            return f"{len(hits)} web result(s)"
+        if node == "rerank":
+            kept = update.get("reranked", []) or []
+            return f"kept top {len(kept)} passage(s)"
+        if node == "evidence_fusion":
+            cites = update.get("citations", []) or []
+            return f"{len(cites)} citation(s) assembled"
+        if node == "reasoning":
+            draft = update.get("draft_answer", "") or ""
+            return f"draft answer ({len(draft)} chars)"
+        if node == "verification":
+            v = update.get("verification", {}) or {}
+            if v.get("supported"):
+                return "supported ✓"
+            n = len(v.get("unsupported_claims", []) or [])
+            return f"{n} unsupported claim(s) — may retry"
+        if node == "response":
+            return "final answer ready"
+    except Exception:  # never let summarization break the stream
+        pass
+    return ""
+
+
+def run_query_stream(
+    question: str,
+    *,
+    thread_id: str,
+    provider: str | None = None,
+    model: str | None = None,
+) -> Iterator[dict]:
+    """Run the pipeline, yielding one event dict per node as it completes.
+
+    Event shapes:
+      {"type": "step",  "node", "label", "detail", "attempts"}
+      {"type": "final", "answer", "citations", "verification", "attempts", "thread_id"}
+      {"type": "error", "message"}
+    """
+    with _llm_selection(provider, model), compiled_graph() as graph:
+        config = {"configurable": {"thread_id": thread_id}}
+        final_state: AgentState = {}
+        try:
+            for chunk in graph.stream(
+                {"question": question, "messages": []},
+                config=config,
+                stream_mode="updates",
+            ):
+                # updates mode: {node_name: {state_delta}}
+                for node, update in chunk.items():
+                    update = update or {}
+                    final_state.update(update)
+                    yield {
+                        "type": "step",
+                        "node": node,
+                        "label": _NODE_LABELS.get(node, node),
+                        "detail": _summarize_node(node, update),
+                        "attempts": final_state.get("retrieval_attempts", 0),
+                    }
+            yield {
+                "type": "final",
+                "thread_id": thread_id,
+                "answer": final_state.get("answer", ""),
+                "citations": final_state.get("citations", []),
+                "verification": final_state.get("verification", {}),
+                "attempts": final_state.get("retrieval_attempts", 0),
+            }
+        except Exception as e:  # surface pipeline errors to the client
+            yield {"type": "error", "message": str(e)}

@@ -1,16 +1,18 @@
 """FastAPI surface: ingest documents and query the agentic pipeline."""
 from __future__ import annotations
 
+import json
 import uuid
 from pathlib import Path
 
 from fastapi import FastAPI
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from . import ingest as ingest_mod
-from .graph import run_query
+from .graph import run_query, run_query_stream
+from .models import list_providers
 
 app = FastAPI(title="a2z_hunter — Agentic Vector Search")
 
@@ -31,11 +33,19 @@ class IngestRequest(BaseModel):
 class QueryRequest(BaseModel):
     question: str
     thread_id: str | None = None
+    provider: str | None = None   # "gemini" | "ollama"; None => configured default
+    model: str | None = None      # specific model id; None => provider default
 
 
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok"}
+
+
+@app.get("/models")
+def models() -> dict:
+    """Providers + available models for the UI dropdown."""
+    return list_providers()
 
 
 @app.post("/ingest")
@@ -48,7 +58,9 @@ def ingest(req: IngestRequest) -> dict:
 @app.post("/query")
 def query(req: QueryRequest) -> dict:
     thread_id = req.thread_id or str(uuid.uuid4())
-    final = run_query(req.question, thread_id=thread_id)
+    final = run_query(
+        req.question, thread_id=thread_id, provider=req.provider, model=req.model
+    )
     return {
         "thread_id": thread_id,
         "answer": final.get("answer", ""),
@@ -59,6 +71,31 @@ def query(req: QueryRequest) -> dict:
 
 
 app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")
+
+
+@app.get("/query/stream")
+def query_stream(
+    question: str,
+    thread_id: str | None = None,
+    provider: str | None = None,
+    model: str | None = None,
+) -> StreamingResponse:
+    """Server-Sent Events: stream the pipeline's progress, then the final result."""
+    tid = thread_id or str(uuid.uuid4())
+
+    def event_gen():
+        # Tell the client its thread id up front.
+        yield f"data: {json.dumps({'type': 'thread', 'thread_id': tid})}\n\n"
+        for event in run_query_stream(
+            question, thread_id=tid, provider=provider, model=model
+        ):
+            yield f"data: {json.dumps(event)}\n\n"
+
+    return StreamingResponse(
+        event_gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 def run() -> None:

@@ -5,8 +5,10 @@ instantiated once per process.
 """
 from __future__ import annotations
 
+from contextvars import ContextVar
 from functools import lru_cache
 
+from langchain_core.language_models import BaseChatModel
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
@@ -17,21 +19,67 @@ from qdrant_client.models import (
 
 from .config import get_settings
 
+# Per-request LLM selection set by the API/graph runner. None => fall back to
+# the configured defaults. Lets the UI dropdown pick provider+model per query
+# without changing any agent node's call site.
+#   {"provider": "gemini"|"ollama", "model": str|None}
+_llm_override: ContextVar[dict | None] = ContextVar("llm_override", default=None)
+
+
+def set_llm_override(provider: str | None, model: str | None) -> object:
+    """Set the active provider/model for the current context. Returns a token
+    to reset with reset_llm_override()."""
+    if not provider and not model:
+        return _llm_override.set(None)
+    return _llm_override.set({"provider": provider, "model": model})
+
+
+def reset_llm_override(token: object) -> None:
+    _llm_override.reset(token)
+
+
+def _resolve(default_model: str) -> tuple[str, str]:
+    """Resolve (provider, model) from override → settings → arg default."""
+    s = get_settings()
+    override = _llm_override.get()
+    provider = (override or {}).get("provider") or s.llm_provider
+    model = (override or {}).get("model")
+    if not model:
+        model = default_model if provider == "gemini" else s.ollama_model
+    return provider, model
+
 
 @lru_cache
-def chat_llm() -> ChatGoogleGenerativeAI:
-    s = get_settings()
+def _gemini(model: str, temperature: float) -> ChatGoogleGenerativeAI:
     return ChatGoogleGenerativeAI(
-        model=s.gemini_chat_model, google_api_key=s.google_api_key, temperature=0
+        model=model, google_api_key=get_settings().google_api_key, temperature=temperature
     )
 
 
 @lru_cache
-def reasoning_llm() -> ChatGoogleGenerativeAI:
-    s = get_settings()
-    return ChatGoogleGenerativeAI(
-        model=s.gemini_reasoning_model, google_api_key=s.google_api_key, temperature=0.2
+def _ollama(model: str, temperature: float) -> BaseChatModel:
+    from langchain_ollama import ChatOllama
+
+    return ChatOllama(
+        model=model, base_url=get_settings().ollama_base_url, temperature=temperature
     )
+
+
+def _build(default_model: str, temperature: float) -> BaseChatModel:
+    provider, model = _resolve(default_model)
+    if provider == "ollama":
+        return _ollama(model, temperature)
+    return _gemini(model, temperature)
+
+
+def chat_llm() -> BaseChatModel:
+    """Fast nodes (planner, rewriter, response)."""
+    return _build(get_settings().gemini_chat_model, 0.0)
+
+
+def reasoning_llm() -> BaseChatModel:
+    """Reasoning + verification nodes."""
+    return _build(get_settings().gemini_reasoning_model, 0.2)
 
 
 @lru_cache
