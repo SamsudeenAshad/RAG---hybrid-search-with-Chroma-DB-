@@ -19,6 +19,15 @@ _GEMINI_MODELS = [
     "gemini-pro-latest",
 ]
 
+# Curated NVIDIA NIM chat models (hosted at integrate.api.nvidia.com).
+_NVIDIA_MODELS = [
+    "meta/llama-3.3-70b-instruct",
+    "meta/llama-3.1-8b-instruct",
+    "meta/llama-3.1-70b-instruct",
+    "mistralai/mixtral-8x7b-instruct-v0.1",
+    "nvidia/llama-3.1-nemotron-70b-instruct",
+]
+
 
 def _ollama_models() -> list[str]:
     s = get_settings()
@@ -52,6 +61,11 @@ def list_providers() -> dict:
                 "label": f"Ollama ({s.ollama_embed_model})",
                 "available": ollama_up,
             },
+            {
+                "id": "nvidia",
+                "label": f"NVIDIA ({s.nvidia_embed_model.split('/')[-1]})",
+                "available": bool(s.nvidia_api_key),
+            },
         ],
         "providers": [
             {
@@ -68,6 +82,13 @@ def list_providers() -> dict:
                 "models": ollama,
                 "default_model": s.ollama_model,
                 "base_url": s.ollama_base_url,
+            },
+            {
+                "id": "nvidia",
+                "label": "NVIDIA NIM",
+                "available": bool(s.nvidia_api_key),
+                "models": _NVIDIA_MODELS,
+                "default_model": s.nvidia_model,
             },
         ],
     }

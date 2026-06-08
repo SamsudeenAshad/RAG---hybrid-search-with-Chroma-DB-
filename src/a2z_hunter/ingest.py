@@ -150,7 +150,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--text", help="ingest a raw text string instead of files")
     parser.add_argument("--title", default="inline", help="title for --text")
     parser.add_argument(
-        "--embed-provider", choices=["gemini", "ollama"], default=None,
+        "--embed-provider", choices=["gemini", "ollama", "nvidia"], default=None,
         help="embedding provider (default: configured EMBED_PROVIDER)",
     )
     args = parser.parse_args(argv)

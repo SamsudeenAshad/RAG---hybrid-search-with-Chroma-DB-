@@ -11,10 +11,10 @@ class Settings(BaseSettings):
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )
 
-    # LLM provider selection: "gemini" or "ollama". Drives the agent nodes.
+    # LLM provider selection: "gemini", "ollama", or "nvidia". Drives the agent nodes.
     llm_provider: str = "gemini"
 
-    # Embedding provider: "gemini" or "ollama". Because providers produce
+    # Embedding provider: "gemini", "ollama", or "nvidia". Because providers produce
     # different vector dimensions, EACH gets its own Qdrant collection
     # (qdrant_collection + "_" + provider). Dimension is auto-detected.
     embed_provider: str = "gemini"
@@ -33,6 +33,16 @@ class Settings(BaseSettings):
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "llama3.1"
     ollama_embed_model: str = "mxbai-embed-large"
+
+    # NVIDIA NIM (hosted; chat only). Used when llm_provider="nvidia".
+    # OpenAI-compatible endpoint at integrate.api.nvidia.com. Get a key at
+    # https://build.nvidia.com (nvapi-...). No embeddings wired here.
+    nvidia_api_key: str = ""
+    nvidia_base_url: str = "https://integrate.api.nvidia.com/v1"
+    nvidia_model: str = "meta/llama-3.3-70b-instruct"
+    # NVIDIA embeddings (used when embed_provider="nvidia"). 1024-dim;
+    # auto-detected like Ollama. Gets its own Qdrant collection.
+    nvidia_embed_model: str = "nvidia/nv-embedqa-e5-v5"
 
     # Qdrant (cloud or local). Set qdrant_api_key for Qdrant Cloud.
     qdrant_url: str = "http://localhost:6533"

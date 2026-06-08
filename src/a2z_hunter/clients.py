@@ -22,7 +22,7 @@ from .config import get_settings
 # Per-request LLM selection set by the API/graph runner. None => fall back to
 # the configured defaults. Lets the UI dropdown pick provider+model per query
 # without changing any agent node's call site.
-#   {"provider": "gemini"|"ollama", "model": str|None}
+#   {"provider": "gemini"|"ollama"|"nvidia", "model": str|None}
 _llm_override: ContextVar[dict | None] = ContextVar("llm_override", default=None)
 
 
@@ -45,7 +45,12 @@ def _resolve(default_model: str) -> tuple[str, str]:
     provider = (override or {}).get("provider") or s.llm_provider
     model = (override or {}).get("model")
     if not model:
-        model = default_model if provider == "gemini" else s.ollama_model
+        if provider == "gemini":
+            model = default_model
+        elif provider == "nvidia":
+            model = s.nvidia_model
+        else:
+            model = s.ollama_model
     return provider, model
 
 
@@ -65,10 +70,25 @@ def _ollama(model: str, temperature: float) -> BaseChatModel:
     )
 
 
+@lru_cache
+def _nvidia(model: str, temperature: float) -> BaseChatModel:
+    from langchain_nvidia_ai_endpoints import ChatNVIDIA
+
+    s = get_settings()
+    return ChatNVIDIA(
+        model=model,
+        api_key=s.nvidia_api_key,
+        base_url=s.nvidia_base_url,
+        temperature=temperature,
+    )
+
+
 def _build(default_model: str, temperature: float) -> BaseChatModel:
     provider, model = _resolve(default_model)
     if provider == "ollama":
         return _ollama(model, temperature)
+    if provider == "nvidia":
+        return _nvidia(model, temperature)
     return _gemini(model, temperature)
 
 
@@ -112,11 +132,24 @@ def _ollama_embeddings(model: str):
     return OllamaEmbeddings(model=model, base_url=get_settings().ollama_base_url)
 
 
-def embeddings():
-    """Embedding model for the active embed provider (gemini | ollama)."""
+@lru_cache
+def _nvidia_embeddings(model: str):
+    from langchain_nvidia_ai_endpoints import NVIDIAEmbeddings
+
     s = get_settings()
-    if active_embed_provider() == "ollama":
+    return NVIDIAEmbeddings(
+        model=model, api_key=s.nvidia_api_key, base_url=s.nvidia_base_url
+    )
+
+
+def embeddings():
+    """Embedding model for the active embed provider (gemini | ollama | nvidia)."""
+    s = get_settings()
+    provider = active_embed_provider()
+    if provider == "ollama":
         return _ollama_embeddings(s.ollama_embed_model)
+    if provider == "nvidia":
+        return _nvidia_embeddings(s.nvidia_embed_model)
     return _gemini_embeddings(s.gemini_embed_model)
 
 
@@ -155,11 +188,12 @@ def reranker():
 def embed_dimension() -> int:
     """Dimension of the active embedding provider.
 
-    Gemini is fixed (config); Ollama is auto-detected by embedding a probe
-    string (model dimensions vary, e.g. mxbai-embed-large=1024).
+    Gemini is fixed (config); Ollama and NVIDIA are auto-detected by embedding
+    a probe string (model dimensions vary, e.g. mxbai-embed-large=1024,
+    nv-embedqa-e5-v5=1024).
     """
     s = get_settings()
-    if active_embed_provider() == "ollama":
+    if active_embed_provider() in ("ollama", "nvidia"):
         return len(embeddings().embed_query("dimension probe"))
     return s.embed_dim
 
