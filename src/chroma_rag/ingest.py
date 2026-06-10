@@ -20,7 +20,6 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from . import db
 from .clients import chroma_collection, embeddings, ensure_collection
-from .config import get_settings
 
 GEMINI_BATCH = 100  # Gemini embeddings API caps batch size at 100 strings.
 
@@ -56,7 +55,6 @@ def ingest_text(
 def _ingest_text(text: str, *, source_uri: str, title: str) -> dict:
     from .clients import active_embed_provider
 
-    s = get_settings()
     coll = ensure_collection()
     db.init_schema()
 
@@ -78,39 +76,37 @@ def _ingest_text(text: str, *, source_uri: str, title: str) -> dict:
     for batch in _batched(chunks, GEMINI_BATCH):
         dense_vectors.extend(embeddings().embed_documents(batch))
 
-    # Sparse (BM25) embeddings.
-    sparse_vectors = list(sparse_embedder().embed(chunks))
-
     document_id = uuid.uuid4()
-    points: list[PointStruct] = []
+    ids: list[str] = []
+    documents: list[str] = []
+    metadatas: list[dict] = []
     chunk_rows: list[dict] = []
-    for ordinal, (chunk, dense, sparse) in enumerate(
-        zip(chunks, dense_vectors, sparse_vectors)
-    ):
+    for ordinal, chunk in enumerate(chunks):
         chunk_id = uuid.uuid4()
-        points.append(
-            PointStruct(
-                id=str(chunk_id),
-                vector={
-                    s.dense_vector_name: dense,
-                    s.sparse_vector_name: SparseVector(
-                        indices=sparse.indices.tolist(), values=sparse.values.tolist()
-                    ),
-                },
-                payload={
-                    "document_id": str(document_id),
-                    "ordinal": ordinal,
-                    "title": title,
-                    "source_uri": source_uri,
-                    "text": chunk,
-                },
-            )
+        ids.append(str(chunk_id))
+        documents.append(chunk)
+        metadatas.append(
+            {
+                "document_id": str(document_id),
+                "ordinal": ordinal,
+                "title": title,
+                "source_uri": source_uri,
+            }
         )
         chunk_rows.append(
             {"id": chunk_id, "ordinal": ordinal, "text": chunk, "token_count": len(chunk.split())}
         )
 
-    qdrant_client().upsert(collection_name=coll, points=points)
+    chroma_collection(coll).add(
+        ids=ids,
+        embeddings=dense_vectors,
+        documents=documents,
+        metadatas=metadatas,
+    )
+    # New docs change the BM25 corpus; force a rebuild on the next query.
+    from .retriever import invalidate_bm25
+
+    invalidate_bm25(coll)
     # Insert document row first (FK target), then its chunks.
     db.insert_document(
         source_uri=source_uri, title=title, sha256=sha,
