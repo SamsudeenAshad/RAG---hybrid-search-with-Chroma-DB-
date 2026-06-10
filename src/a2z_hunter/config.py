@@ -15,8 +15,8 @@ class Settings(BaseSettings):
     llm_provider: str = "gemini"
 
     # Embedding provider: "gemini", "ollama", or "nvidia". Because providers produce
-    # different vector dimensions, EACH gets its own Qdrant collection
-    # (qdrant_collection + "_" + provider). Dimension is auto-detected.
+    # different vector dimensions, EACH gets its own Chroma collection
+    # (collection_base + "_" + provider). Dimension is auto-detected.
     embed_provider: str = "gemini"
 
     # Gemini
@@ -44,10 +44,13 @@ class Settings(BaseSettings):
     # auto-detected like Ollama. Gets its own Qdrant collection.
     nvidia_embed_model: str = "nvidia/nv-embedqa-e5-v5"
 
-    # Qdrant (cloud or local). Set qdrant_api_key for Qdrant Cloud.
-    qdrant_url: str = "http://localhost:6533"
-    qdrant_api_key: str = ""
-    qdrant_collection: str = "documents"  # base name; per-provider suffix applied
+    # Chroma Cloud. tenant_id + database + api_key from `chroma login` /
+    # `chroma db create`. The base collection name gets a per-provider suffix
+    # applied (e.g. "documents_ollama"); see clients.collection_name().
+    chroma_tenant: str = ""
+    chroma_database: str = "a2z_hunter"
+    chroma_api_key: str = ""
+    collection_base: str = "documents"  # base name; per-provider suffix applied
 
     # Postgres
     database_url: str = "postgresql://a2z:a2z@localhost:5442/a2z_hunter"
