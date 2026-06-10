@@ -1,7 +1,7 @@
 [project]
-name = "a2z-hunter"
+name = "chroma-rag"
 version = "0.1.0"
-description = "Agentic vector search — LangGraph, Qdrant, PostgreSQL, Gemini"
+description = "Agentic RAG with hybrid search — LangGraph, Chroma, PostgreSQL, Gemini"
 readme = "README.md"
 requires-python = ">=3.10,<3.14"
 dependencies = [
@@ -13,8 +13,7 @@ dependencies = [
     "langchain-google-genai>=2.0.0",
     "langchain-ollama>=0.2.0",
     "langchain-nvidia-ai-endpoints>=0.3.0",
-    "langchain-qdrant>=0.2.0",
-    "qdrant-client>=1.12.0",
+    "chromadb>=0.5.0",
     "fastembed>=0.4.0",
     "psycopg[binary,pool]>=3.2.0",
     "pydantic>=2.7.0",
