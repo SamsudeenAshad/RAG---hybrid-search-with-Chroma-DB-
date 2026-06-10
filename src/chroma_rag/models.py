@@ -49,7 +49,7 @@ def list_providers() -> dict:
         "default_provider": s.llm_provider,
         "default_embed_provider": s.embed_provider,
         # Embedding-provider selection (separate from chat LLM; each provider
-        # uses its own Qdrant collection, sized to its dimension).
+        # uses its own Chroma collection, sized to its dimension).
         "embed_providers": [
             {
                 "id": "gemini",

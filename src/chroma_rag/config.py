@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     nvidia_base_url: str = "https://integrate.api.nvidia.com/v1"
     nvidia_model: str = "meta/llama-3.3-70b-instruct"
     # NVIDIA embeddings (used when embed_provider="nvidia"). 1024-dim;
-    # auto-detected like Ollama. Gets its own Qdrant collection.
+    # auto-detected like Ollama. Gets its own Chroma collection.
     nvidia_embed_model: str = "nvidia/nv-embedqa-e5-v5"
 
     # Chroma Cloud. tenant_id + database + api_key from `chroma login` /
@@ -69,7 +69,8 @@ class Settings(BaseSettings):
     rerank_model: str = "Xenova/ms-marco-MiniLM-L-6-v2"
     # Sparse model for the client-side BM25 half of hybrid search. Chroma has no
     # server-side sparse vectors, so BM25 scoring is fused with Chroma's dense
-    # results via RRF in Python (see retriever.py).
+    # results via RRF in Python (see retriever.py). "Qdrant/bm25" is fastembed's
+    # HuggingFace model id for BM25 (no Qdrant runtime dependency).
     sparse_model: str = "Qdrant/bm25"
 
     # RRF rank constant for fusing dense (Chroma) + sparse (BM25) rankings.
