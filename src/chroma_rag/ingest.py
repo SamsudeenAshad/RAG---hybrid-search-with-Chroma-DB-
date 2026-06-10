@@ -1,4 +1,9 @@
-"""Ingestion pipeline: load -> split -> dedupe -> embed (dense+sparse) -> upsert.
+"""Ingestion pipeline: load -> split -> dedupe -> embed (dense) -> add to Chroma.
+
+Sparse (BM25) vectors are NOT stored: Chroma is dense-only, so the BM25 half of
+hybrid search is rebuilt client-side at query time from the collection's
+documents (see retriever.py). Chunk text + metadata are stored as Chroma
+documents so that index can be rebuilt.
 
 CLI:
     python -m chroma_rag.ingest path/to/file.txt [more files/dirs ...]
@@ -12,10 +17,9 @@ import uuid
 from pathlib import Path
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from qdrant_client.models import PointStruct, SparseVector
 
 from . import db
-from .clients import embeddings, ensure_collection, qdrant_client, sparse_embedder
+from .clients import chroma_collection, embeddings, ensure_collection
 from .config import get_settings
 
 GEMINI_BATCH = 100  # Gemini embeddings API caps batch size at 100 strings.

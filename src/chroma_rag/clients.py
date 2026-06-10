@@ -197,32 +197,37 @@ def embed_dimension() -> int:
     return s.embed_dim
 
 
-def ensure_collection() -> str:
-    """Create the per-provider hybrid (dense + sparse) collection if missing.
+def chroma_collection(name: str | None = None):
+    """Return the per-provider Chroma collection, creating it if missing.
 
-    Returns the resolved collection name. Verifies an existing collection's
-    dense size matches the active provider's dimension.
+    Cosine space matches the embedding providers. Chroma fixes the vector
+    dimension on the first add, so no explicit size is set here.
     """
-    s = get_settings()
-    client = qdrant_client()
-    name = collection_name()
-    dim = embed_dimension()
-
-    if client.collection_exists(name):
-        info = client.get_collection(name)
-        dense = info.config.params.vectors[s.dense_vector_name]
-        if dense.size != dim:
-            raise ValueError(
-                f"Collection '{name}' dense size {dense.size} != provider "
-                f"dimension {dim}. Drop the collection to re-create it."
-            )
-        return name
-
-    client.create_collection(
-        collection_name=name,
-        vectors_config={
-            s.dense_vector_name: VectorParams(size=dim, distance=Distance.COSINE)
-        },
-        sparse_vectors_config={s.sparse_vector_name: SparseVectorParams()},
+    name = name or collection_name()
+    return chroma_client().get_or_create_collection(
+        name=name, metadata={"hnsw:space": "cosine"}
     )
+
+
+def ensure_collection() -> str:
+    """Ensure the per-provider collection exists. Returns its name.
+
+    Verifies an existing, non-empty collection's vector dimension matches the
+    active provider's dimension (a mismatch means it was built with a different
+    embedding model — delete the collection to rebuild).
+    """
+    name = collection_name()
+    coll = chroma_collection(name)
+
+    if coll.count() > 0:
+        peek = coll.peek(limit=1)
+        existing = peek.get("embeddings")
+        if existing is not None and len(existing) > 0:
+            existing_dim = len(existing[0])
+            dim = embed_dimension()
+            if existing_dim != dim:
+                raise ValueError(
+                    f"Collection '{name}' vector size {existing_dim} != provider "
+                    f"dimension {dim}. Delete the collection to re-create it."
+                )
     return name
