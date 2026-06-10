@@ -67,15 +67,13 @@ class Settings(BaseSettings):
 
     # Models
     rerank_model: str = "Xenova/ms-marco-MiniLM-L-6-v2"
+    # Sparse model for the client-side BM25 half of hybrid search. Chroma has no
+    # server-side sparse vectors, so BM25 scoring is fused with Chroma's dense
+    # results via RRF in Python (see retriever.py).
     sparse_model: str = "Qdrant/bm25"
 
-    @property
-    def dense_vector_name(self) -> str:
-        return "dense"
-
-    @property
-    def sparse_vector_name(self) -> str:
-        return "sparse"
+    # RRF rank constant for fusing dense (Chroma) + sparse (BM25) rankings.
+    rrf_k: int = 60
 
 
 @lru_cache

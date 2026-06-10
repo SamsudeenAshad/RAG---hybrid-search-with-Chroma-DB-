@@ -1,4 +1,4 @@
-"""Shared client factories: Gemini LLM/embeddings, Qdrant, sparse/rerank models.
+"""Shared client factories: Gemini LLM/embeddings, Chroma, sparse/rerank models.
 
 All factories are cached so models (which can be expensive to load) are
 instantiated once per process.
@@ -10,12 +10,6 @@ from functools import lru_cache
 
 from langchain_core.language_models import BaseChatModel
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
-from qdrant_client import QdrantClient
-from qdrant_client.models import (
-    Distance,
-    SparseVectorParams,
-    VectorParams,
-)
 
 from .config import get_settings
 
@@ -156,23 +150,28 @@ def embeddings():
 def collection_name(provider: str | None = None) -> str:
     """Per-provider collection name, e.g. 'documents_gemini'."""
     s = get_settings()
-    return f"{s.qdrant_collection}_{provider or active_embed_provider()}"
+    return f"{s.collection_base}_{provider or active_embed_provider()}"
 
 
 @lru_cache
-def qdrant_client() -> QdrantClient:
+def chroma_client():
+    """Cached Chroma Cloud client. Auth via tenant + database + api_key."""
+    import chromadb
+
     s = get_settings()
-    return QdrantClient(
-        url=s.qdrant_url,
-        api_key=s.qdrant_api_key or None,
-        # Qdrant Cloud requires gRPC disabled / HTTPS via the REST URL.
-        prefer_grpc=False,
+    return chromadb.CloudClient(
+        tenant=s.chroma_tenant or None,
+        database=s.chroma_database,
+        api_key=s.chroma_api_key or None,
     )
 
 
 @lru_cache
 def sparse_embedder():
-    """Lazy import — fastembed pulls heavy deps; only load when needed."""
+    """Lazy import — fastembed pulls heavy deps; only load when needed.
+
+    Used for the client-side BM25 half of hybrid search (Chroma has no
+    server-side sparse vectors)."""
     from fastembed import SparseTextEmbedding
 
     return SparseTextEmbedding(model_name=get_settings().sparse_model)
