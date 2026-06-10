@@ -6,30 +6,30 @@
   <title>chroma_rag — Agentic Research</title>
   <style>
     :root {
-      --bg: #0b0b0c;
-      --bg-2: #100f10;
-      --sidebar: #0d0d0e;
-      --panel: rgba(255,255,255,.018);
-      --panel-solid: #161516;
-      --panel-2: rgba(255,255,255,.035);
-      --border: rgba(255,255,255,.06);
-      --border-2: rgba(255,255,255,.11);
-      --text: #ededed;
-      --text-2: #a6a6a8;
-      --muted: #6c6c70;
-      --accent: #ededed;
-      --accent-2: #c9c9cc;
-      --accent-soft: rgba(237,237,237,.08);
-      --purple: #c9c9cc;
-      --good: #b9b9bc;
-      --good-soft: rgba(237,237,237,.07);
-      --warn: #d6d6d8;
-      --warn-soft: rgba(237,237,237,.07);
-      --bad: #d6d6d8;
+      --bg: #0c0708;
+      --bg-2: #140a0b;
+      --sidebar: #0e0809;
+      --panel: rgba(255,80,80,.03);
+      --panel-solid: #1a0e0f;
+      --panel-2: rgba(255,80,80,.06);
+      --border: rgba(255,90,90,.1);
+      --border-2: rgba(255,90,90,.2);
+      --text: #fbeaea;
+      --text-2: #c79a9c;
+      --muted: #8a5d60;
+      --accent: #ff3b3b;
+      --accent-2: #d61f1f;
+      --accent-soft: rgba(255,59,59,.14);
+      --purple: #ff6a6a;
+      --good: #ff8a5c;
+      --good-soft: rgba(255,138,92,.13);
+      --warn: #ffb454;
+      --warn-soft: rgba(255,180,84,.13);
+      --bad: #ff5470;
       /* Red highlight — used for active nav, LIVE pill, MATCH/HUNT tags */
       --red: #ff4d4d;
-      --red-soft: rgba(255,59,59,.12);
-      --term-green: #4ec07a;
+      --red-soft: rgba(255,59,59,.14);
+      --term-green: #ff8a5c;
       --radius: 12px;
       --radius-sm: 9px;
       --mono: "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, Menlo, Consolas, monospace;
@@ -40,8 +40,8 @@
       margin: 0;
       font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
       background:
-        radial-gradient(1100px 600px at 78% -8%, rgba(237,237,237,.08), transparent 60%),
-        radial-gradient(900px 500px at 12% 108%, rgba(237,237,237,.04), transparent 55%),
+        radial-gradient(1100px 600px at 78% -8%, rgba(255,59,59,.08), transparent 60%),
+        radial-gradient(900px 500px at 12% 108%, rgba(255,59,59,.04), transparent 55%),
         var(--bg);
       color: var(--text);
       line-height: 1.55;
@@ -57,7 +57,7 @@
 
     /* ---------- Sidebar ---------- */
     .sidebar {
-      background: linear-gradient(180deg, var(--sidebar), #070708);
+      background: linear-gradient(180deg, var(--sidebar), #0a0506);
       border-right: 1px solid var(--border);
       display: flex; flex-direction: column;
       padding: 20px 16px;
@@ -67,7 +67,7 @@
     .brand { display: flex; align-items: center; gap: 11px; padding: 4px 6px 16px; }
     .brand .logo {
       width: 38px; height: 38px; border-radius: 11px; flex: none;
-      background: radial-gradient(circle at 50% 38%, rgba(237,237,237,.25), transparent 70%), #121214;
+      background: radial-gradient(circle at 50% 38%, rgba(255,59,59,.25), transparent 70%), #1a0e0f;
       border: 1px solid var(--border-2);
       display: grid; place-items: center;
     }
@@ -78,12 +78,12 @@
     .new-btn {
       display: flex; align-items: center; justify-content: center; gap: 8px;
       width: 100%; padding: 11px; margin-bottom: 8px;
-      background: linear-gradient(180deg, rgba(237,237,237,.16), rgba(237,237,237,.06));
-      border: 1px solid rgba(237,237,237,.35);
+      background: linear-gradient(180deg, rgba(255,59,59,.16), rgba(255,59,59,.06));
+      border: 1px solid rgba(255,59,59,.35);
       color: var(--accent); font-weight: 600; font-size: 13.5px;
       border-radius: var(--radius-sm); cursor: pointer; transition: .16s;
     }
-    .new-btn:hover { background: rgba(237,237,237,.2); box-shadow: 0 0 0 3px rgba(237,237,237,.08); }
+    .new-btn:hover { background: rgba(255,59,59,.2); box-shadow: 0 0 0 3px rgba(255,59,59,.08); }
 
     .nav { display: flex; flex-direction: column; gap: 4px; margin-top: 0; }
     .nav-item {
@@ -119,7 +119,7 @@
       display: flex; align-items: center; gap: 14px;
       padding: 16px 28px; border-bottom: 1px solid var(--border);
       position: sticky; top: 0; z-index: 5;
-      background: rgba(10,10,12,.72); backdrop-filter: blur(12px);
+      background: rgba(12,7,8,.72); backdrop-filter: blur(12px);
     }
     .topbar .title { font-weight: 700; font-size: 15px; color: var(--accent); }
     .topbar .actions { margin-left: auto; display: flex; gap: 6px; }
@@ -152,13 +152,13 @@
       font-size: 11px; letter-spacing: .08em; text-transform: uppercase; font-weight: 600;
       padding: 6px 12px; border-radius: 20px; background: var(--good-soft); color: var(--good);
     }
-    .engine-bar .health.down { background: rgba(237,237,237,.13); color: var(--bad); }
+    .engine-bar .health.down { background: rgba(255,59,59,.13); color: var(--bad); }
     .engine-bar .health .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; }
 
     /* ---------- Composer / query box (terminal window) ---------- */
     .composer {
       padding: 48px 20px 18px; position: relative;
-      background: #0c0c0e; border: 1px solid var(--border-2); border-radius: 12px;
+      background: #0e0809; border: 1px solid var(--border-2); border-radius: 12px;
       overflow: hidden;
     }
     /* Terminal title bar with traffic-light dots + file label. */
@@ -171,7 +171,7 @@
       content: "agent_process://query_vectors.sh";
       position: absolute; top: 0; left: 0; right: 0; height: 38px; z-index: 1;
       padding-left: 78px; display: flex; align-items: center;
-      background: #161618; border-bottom: 1px solid var(--border);
+      background: #1c1011; border-bottom: 1px solid var(--border);
       font-family: var(--mono); font-size: 12px; color: var(--muted); letter-spacing: .2px;
     }
     /* thread-tag (JS-toggled) sits below the terminal header when shown. */
@@ -200,9 +200,9 @@
     .send-btn {
       margin-left: auto; flex: none; width: 44px; height: 44px; border-radius: 50%;
       display: grid; place-items: center; cursor: pointer; transition: .16s;
-      background: linear-gradient(180deg, var(--accent), var(--accent-2)); border: none; color: #0b0b0c;
+      background: linear-gradient(180deg, var(--accent), var(--accent-2)); border: none; color: #0c0708;
     }
-    .send-btn:hover { box-shadow: 0 0 0 4px rgba(237,237,237,.16); }
+    .send-btn:hover { box-shadow: 0 0 0 4px rgba(255,59,59,.16); }
     .send-btn:disabled { opacity: .5; cursor: not-allowed; box-shadow: none; }
     .send-btn svg { width: 20px; height: 20px; }
     .composer-status { font-size: 12.5px; color: var(--muted); margin-top: 10px; min-height: 16px; }
@@ -236,7 +236,7 @@
     .query-echo .qe-text { font-size: 23px; font-weight: 700; line-height: 1.35; letter-spacing: -.3px; }
 
     /* ---------- Answer ---------- */
-    .answer-card { position: relative; overflow: hidden; padding: 24px; border: 1px solid rgba(237,237,237,.22); box-shadow: 0 0 0 1px rgba(237,237,237,.05), 0 12px 40px -18px rgba(237,237,237,.35); }
+    .answer-card { position: relative; overflow: hidden; padding: 24px; border: 1px solid rgba(255,59,59,.22); box-shadow: 0 0 0 1px rgba(255,59,59,.05), 0 12px 40px -18px rgba(255,59,59,.35); }
     .answer-card.unverified { border-color: var(--warn-soft); box-shadow: none; }
     .answer-card::before { content:""; position:absolute; inset:0 0 auto 0; height:2px; background: linear-gradient(90deg, transparent, var(--good), transparent); }
     .answer-card.unverified::before { background: linear-gradient(90deg, transparent, var(--warn), transparent); }
@@ -253,7 +253,7 @@
       display: inline-flex; align-items: center; justify-content: center;
       min-width: 17px; height: 17px; padding: 0 4px; margin: 0 1px; vertical-align: 1px;
       font-size: 10.5px; font-weight: 700; line-height: 1; border-radius: 5px; cursor: pointer;
-      background: var(--accent-soft); color: var(--accent); border: 1px solid rgba(237,237,237,.3); transition: .12s;
+      background: var(--accent-soft); color: var(--accent); border: 1px solid rgba(255,59,59,.3); transition: .12s;
     }
     .cite-marker:hover { background: var(--accent); color: #04121d; }
 
@@ -275,9 +275,9 @@
       padding: 13px 15px; border-radius: var(--radius-sm); background: var(--panel-2);
       border: 1px solid var(--border); scroll-margin-top: 90px; transition: .16s;
     }
-    .cite.flash { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(237,237,237,.12); }
+    .cite.flash { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255,59,59,.12); }
     .cite-top { display: flex; align-items: center; gap: 9px; margin-bottom: 7px; }
-    .cite-ref { font-size: 11px; font-weight: 700; color: var(--accent); background: var(--accent-soft); border: 1px solid rgba(237,237,237,.3); border-radius: 5px; padding: 1px 6px; }
+    .cite-ref { font-size: 11px; font-weight: 700; color: var(--accent); background: var(--accent-soft); border: 1px solid rgba(255,59,59,.3); border-radius: 5px; padding: 1px 6px; }
     .cite-title { font-size: 13px; font-weight: 600; color: var(--text); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .cite-snippet { font-size: 12.5px; color: var(--muted); line-height: 1.55; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
     .cite-src { font-family: var(--mono); font-size: 10.5px; color: var(--muted); margin-top: 8px; }
@@ -355,7 +355,7 @@
     <aside class="sidebar">
       <div class="brand">
         <span class="logo">
-          <svg viewBox="0 0 24 24" fill="none"><path d="M12 4 L4 20 M12 4 L20 20" stroke="url(#g)" stroke-width="2.4" stroke-linecap="round"/><circle cx="12" cy="12.5" r="2.1" fill="#ededed"/><defs><linearGradient id="g" x1="4" y1="4" x2="20" y2="20"><stop stop-color="#ededed"/><stop offset="1" stop-color="#9a9a9d"/></linearGradient></defs></svg>
+          <svg viewBox="0 0 24 24" fill="none"><path d="M12 4 L4 20 M12 4 L20 20" stroke="url(#g)" stroke-width="2.4" stroke-linecap="round"/><circle cx="12" cy="12.5" r="2.1" fill="#ededed"/><defs><linearGradient id="g" x1="4" y1="4" x2="20" y2="20"><stop stop-color="#ededed"/><stop offset="1" stop-color="#d61f1f"/></linearGradient></defs></svg>
         </span>
         <div>
           <div class="name">chroma_rag</div>
