@@ -48,12 +48,12 @@ class Settings(BaseSettings):
     # `chroma db create`. The base collection name gets a per-provider suffix
     # applied (e.g. "documents_ollama"); see clients.collection_name().
     chroma_tenant: str = ""
-    chroma_database: str = "a2z_hunter"
+    chroma_database: str = "chroma_rag"
     chroma_api_key: str = ""
     collection_base: str = "documents"  # base name; per-provider suffix applied
 
     # Postgres
-    database_url: str = "postgresql://a2z:a2z@localhost:5442/a2z_hunter"
+    database_url: str = "postgresql://a2z:a2z@localhost:5442/chroma_rag"
 
     # Retrieval / graph tuning
     retrieval_top_k: int = 20

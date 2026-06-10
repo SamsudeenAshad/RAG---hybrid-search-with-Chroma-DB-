@@ -1,52 +1,41 @@
 services:
   api:
     build: .
-    container_name: a2z_api
+    container_name: chroma_rag_api
     ports:
       - "8010:8000"   # host 8010 -> container 8000 (8000 is taken on this host)
     env_file:
-      - .env          # GOOGLE_API_KEY, QDRANT_API_KEY, TAVILY_API_KEY, model/tuning vars
+      - .env          # GOOGLE_API_KEY, CHROMA_API_KEY, TAVILY_API_KEY, model/tuning vars
     environment:
       # Override host-oriented URLs so they resolve on the compose network
       # (inside the container, "localhost" is the container itself).
-      QDRANT_URL: http://qdrant:6333
-      DATABASE_URL: postgresql://a2z:a2z@postgres:5432/a2z_hunter
+      DATABASE_URL: postgresql://a2z:a2z@postgres:5432/chroma_rag
       API_PORT: "8000"
     depends_on:
       postgres:
         condition: service_healthy
-      qdrant:
-        condition: service_started
     restart: unless-stopped
 
-  qdrant:
-    image: qdrant/qdrant:v1.12.4
-    container_name: a2z_qdrant
-    ports:
-      - "6533:6333"   # REST / dashboard (host 6533 to avoid conflicts)
-      - "6534:6334"   # gRPC
-    volumes:
-      - qdrant_storage:/qdrant/storage
-    restart: unless-stopped
-
+  # Chroma is used via Chroma Cloud (CHROMA_* in .env) — no local vector-store
+  # service is needed. Only Postgres (LangGraph checkpoints + doc metadata) runs
+  # locally.
   postgres:
     image: postgres:16-alpine
-    container_name: a2z_postgres
+    container_name: chroma_rag_postgres
     environment:
       POSTGRES_USER: a2z
       POSTGRES_PASSWORD: a2z
-      POSTGRES_DB: a2z_hunter
+      POSTGRES_DB: chroma_rag
     ports:
       - "5442:5432"   # host 5442 to avoid conflicts
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U a2z -d a2z_hunter"]
+      test: ["CMD-SHELL", "pg_isready -U a2z -d chroma_rag"]
       interval: 5s
       timeout: 5s
       retries: 10
     restart: unless-stopped
 
 volumes:
-  qdrant_storage:
   pgdata:
