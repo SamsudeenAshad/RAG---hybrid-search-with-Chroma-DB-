@@ -44,11 +44,15 @@ class Settings(BaseSettings):
     # auto-detected like Ollama. Gets its own Chroma collection.
     nvidia_embed_model: str = "nvidia/nv-embedqa-e5-v5"
 
-    # Chroma Cloud. tenant_id + database + api_key from `chroma login` /
-    # `chroma db create`. The base collection name gets a per-provider suffix
-    # applied (e.g. "documents_ollama"); see clients.collection_name().
-    chroma_tenant: str = ""
+    # Chroma. Local Docker (HttpClient) when chroma_host is set; otherwise falls
+    # back to Chroma Cloud (CloudClient) via tenant + api_key. The base
+    # collection name gets a per-provider suffix applied (e.g.
+    # "documents_ollama"); see clients.collection_name().
+    chroma_host: str = "localhost"  # set "" to use Chroma Cloud instead
+    chroma_port: int = 8800
     chroma_database: str = "chroma_rag"
+    # Chroma Cloud (used only when chroma_host is empty).
+    chroma_tenant: str = ""
     chroma_api_key: str = ""
     collection_base: str = "documents"  # base name; per-provider suffix applied
 

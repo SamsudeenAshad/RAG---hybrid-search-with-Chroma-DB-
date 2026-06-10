@@ -10,15 +10,25 @@ services:
       # Override host-oriented URLs so they resolve on the compose network
       # (inside the container, "localhost" is the container itself).
       DATABASE_URL: postgresql://a2z:a2z@postgres:5432/chroma_rag
+      CHROMA_HOST: chroma
+      CHROMA_PORT: "8000"
       API_PORT: "8000"
     depends_on:
       postgres:
         condition: service_healthy
+      chroma:
+        condition: service_started
     restart: unless-stopped
 
-  # Chroma is used via Chroma Cloud (CHROMA_* in .env) — no local vector-store
-  # service is needed. Only Postgres (LangGraph checkpoints + doc metadata) runs
-  # locally.
+  chroma:
+    image: chromadb/chroma:1.5.9
+    container_name: chroma_rag_chroma
+    ports:
+      - "8800:8000"   # host 8800 -> container 8000 (8000 is taken on this host)
+    volumes:
+      - chroma_data:/data
+    restart: unless-stopped
+
   postgres:
     image: postgres:16-alpine
     container_name: chroma_rag_postgres
@@ -39,3 +49,4 @@ services:
 
 volumes:
   pgdata:
+  chroma_data:

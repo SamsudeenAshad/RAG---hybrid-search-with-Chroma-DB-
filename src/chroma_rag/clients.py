@@ -155,10 +155,16 @@ def collection_name(provider: str | None = None) -> str:
 
 @lru_cache
 def chroma_client():
-    """Cached Chroma Cloud client. Auth via tenant + database + api_key."""
+    """Cached Chroma client.
+
+    Local Docker (HttpClient) when chroma_host is set; otherwise Chroma Cloud
+    (CloudClient via tenant + database + api_key).
+    """
     import chromadb
 
     s = get_settings()
+    if s.chroma_host:
+        return chromadb.HttpClient(host=s.chroma_host, port=s.chroma_port)
     return chromadb.CloudClient(
         tenant=s.chroma_tenant or None,
         database=s.chroma_database,
