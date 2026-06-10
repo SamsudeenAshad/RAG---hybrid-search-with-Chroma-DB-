@@ -14,7 +14,7 @@ from . import ingest as ingest_mod
 from .graph import run_query, run_query_stream
 from .models import list_providers
 
-app = FastAPI(title="a2z_hunter — Agentic Vector Search")
+app = FastAPI(title="chroma_rag — Agentic Vector Search")
 
 _STATIC_DIR = Path(__file__).parent / "static"
 

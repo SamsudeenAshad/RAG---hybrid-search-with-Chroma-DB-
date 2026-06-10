@@ -34,8 +34,8 @@ dev = [
 ]
 
 [project.scripts]
-a2z-ingest = "a2z_hunter.ingest:main"
-a2z-api = "a2z_hunter.api:run"
+chroma-rag-ingest = "chroma_rag.ingest:main"
+chroma-rag-api = "chroma_rag.api:run"
 
 [build-system]
 requires = ["setuptools>=68"]
@@ -45,7 +45,7 @@ build-backend = "setuptools.build_meta"
 where = ["src"]
 
 [tool.setuptools.package-data]
-a2z_hunter = ["static/*"]
+chroma_rag = ["static/*"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

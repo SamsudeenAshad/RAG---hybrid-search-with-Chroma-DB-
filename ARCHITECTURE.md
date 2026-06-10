@@ -125,12 +125,12 @@ Qdrant collection `documents` runs in **hybrid mode** — each point carries a *
 ## 8. Proposed File Layout
 
 ```
-a2z_hunter/
+chroma_rag/
 ├── docker-compose.yml          # qdrant + postgres
 ├── .env.example                # GOOGLE_API_KEY, TAVILY_API_KEY, DB/QDRANT urls
 ├── pyproject.toml              # deps (uv / pip)
 ├── README.md
-├── src/a2z_hunter/
+├── src/chroma_rag/
 │   ├── config.py               # pydantic-settings: env → typed config
 │   ├── clients.py              # qdrant client, gemini llm/embeddings, pg pool
 │   ├── db.py                   # schema bootstrap + document/chunk DAO

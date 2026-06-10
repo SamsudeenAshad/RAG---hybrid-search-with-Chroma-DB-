@@ -1,4 +1,4 @@
-# a2z_hunter API — agentic vector search
+# chroma_rag API — agentic vector search
 FROM python:3.12-slim
 
 WORKDIR /app
@@ -18,10 +18,10 @@ RUN pip install --no-cache-dir --upgrade pip \
 
 EXPOSE 8000
 
-# API_PORT is honored by a2z_hunter.api.run()
+# API_PORT is honored by chroma_rag.api.run()
 ENV API_PORT=8000
 
 HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=5 \
     CMD curl -fs http://localhost:8000/health || exit 1
 
-CMD ["python", "-m", "a2z_hunter.api"]
+CMD ["python", "-m", "chroma_rag.api"]
