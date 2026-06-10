@@ -109,7 +109,7 @@ def run() -> None:
     import uvicorn
 
     port = int(os.getenv("API_PORT", "8000"))
-    uvicorn.run("a2z_hunter.api:app", host="0.0.0.0", port=port, reload=False)
+    uvicorn.run("chroma_rag.api:app", host="0.0.0.0", port=port, reload=False)
 
 
 if __name__ == "__main__":

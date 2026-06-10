@@ -1,8 +1,8 @@
 """Ingestion pipeline: load -> split -> dedupe -> embed (dense+sparse) -> upsert.
 
 CLI:
-    python -m a2z_hunter.ingest path/to/file.txt [more files/dirs ...]
-    python -m a2z_hunter.ingest --text "raw text" --title "My Note"
+    python -m chroma_rag.ingest path/to/file.txt [more files/dirs ...]
+    python -m chroma_rag.ingest --text "raw text" --title "My Note"
 """
 from __future__ import annotations
 

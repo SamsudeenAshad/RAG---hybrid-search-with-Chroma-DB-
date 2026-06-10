@@ -5,8 +5,8 @@ import os
 
 os.environ.setdefault("GOOGLE_API_KEY", "test")
 
-from a2z_hunter.db import sha256_text  # noqa: E402
-from a2z_hunter.ingest import _batched, _split  # noqa: E402
+from chroma_rag.db import sha256_text  # noqa: E402
+from chroma_rag.ingest import _batched, _split  # noqa: E402
 
 
 def test_sha256_is_stable_and_dedupes():

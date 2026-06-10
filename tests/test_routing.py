@@ -7,9 +7,9 @@ os.environ.setdefault("GOOGLE_API_KEY", "test")
 
 from langchain_core.documents import Document  # noqa: E402
 
-from a2z_hunter.agents.evidence_fusion import evidence_fusion_node  # noqa: E402
-from a2z_hunter.config import get_settings  # noqa: E402
-from a2z_hunter.graph import (  # noqa: E402
+from chroma_rag.agents.evidence_fusion import evidence_fusion_node  # noqa: E402
+from chroma_rag.config import get_settings  # noqa: E402
+from chroma_rag.graph import (  # noqa: E402
     _route_after_retrieval,
     _route_after_verification,
 )
